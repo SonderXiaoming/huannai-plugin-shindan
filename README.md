@@ -4,6 +4,10 @@
 
 https://github.com/SonderXiaoming/huannai-plugin-shindan
 
+## 原项目地址：
+
+https://github.com/noneplugin/nonebot-plugin-shindan
+
 使用 [ShindanMaker](https://shindanmaker.com) 网站的~~无聊~~趣味占卜
 
 利用 playwright 将占卜结果转换为图片发出，因此可以显示图片、图表结果
