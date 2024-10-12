@@ -10,8 +10,7 @@ from .htmlrender import html_to_pic
 from .config import SHINDANMAKER_COOKIE
 
 tpl_path = Path(__file__).parent / "templates"
-env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(tpl_path), enable_async=True)
+env = jinja2.Environment(loader=jinja2.FileSystemLoader(tpl_path), enable_async=True)
 
 
 headers = {
@@ -53,7 +52,6 @@ async def get_shindan_title(id: int) -> str:
 
 
 async def make_shindan(id: int, name: str, mode="image") -> Union[str, bytes]:
-    print(name)
     url = f"https://shindanmaker.com/{id}"
     seed = time.strftime("%y%m%d", time.localtime())
     async with httpx.AsyncClient() as client:
@@ -64,8 +62,8 @@ async def make_shindan(id: int, name: str, mode="image") -> Union[str, bytes]:
         shindan_token = form.find("input", {"name": "shindan_token"})["value"]
         payload = {
             "_token": _token,
-            "shindanName": name + seed,
-            "hiddenName": "名無しのR",
+            "user_input_value_1": name,
+            "randname": "名なしのI",
             "type": "name",
             "shindan_token": shindan_token,
         }
@@ -100,8 +98,7 @@ def remove_shindan_effects(content: Tag, type: str):
 
 async def render_html(content: str) -> Tuple[str, bool]:
     dom = BeautifulSoup(content, "lxml")
-    result_js = str(
-        dom.find("script", string=re.compile(r"savedShindanResult")))
+    result_js = str(dom.find("script", string=re.compile(r"savedShindanResult")))
     title = str(dom.find("h1", {"id": "shindanResultAbove"}))
     result = dom.find("div", {"id": "shindanResultBlock"})
     assert isinstance(result, Tag)
