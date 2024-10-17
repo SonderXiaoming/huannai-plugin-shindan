@@ -59,13 +59,13 @@ async def make_shindan(id: int, name: str, mode="image") -> Union[str, bytes]:
         dom = BeautifulSoup(resp.text, "lxml")
         form = dom.find("form", {"id": "shindanForm"})
         _token = form.find("input", {"name": "_token"})["value"]
-        shindan_token = form.find("input", {"name": "shindan_token"})["value"]
+        # shindan_token = form.find("input", {"name": "shindan_token"})["value"]
         payload = {
             "_token": _token,
             "user_input_value_1": name,
             "randname": "名なしのI",
             "type": "name",
-            "shindan_token": shindan_token,
+            # "shindan_token": shindan_token,
         }
         resp = await post(client, url, json=payload)
 
@@ -99,7 +99,11 @@ def remove_shindan_effects(content: Tag, type: str):
 async def render_html(content: str) -> Tuple[str, bool]:
     dom = BeautifulSoup(content, "lxml")
     result_js = str(dom.find("script", string=re.compile(r"savedShindanResult")))
-    title = str(dom.find("h1", {"id": "shindanResultAbove"}))
+    title = (
+        str(dom.find("h1", {"id": "shindanResultAbove"}))
+        if dom.find("h1", {"id": "shindanResultAbove"})
+        else str(dom.find("div", {"class": "shindanTitleImageContainer"}))
+    )
     result = dom.find("div", {"id": "shindanResultBlock"})
     assert isinstance(result, Tag)
     remove_shindan_effects(result, "ef_shuffle")
