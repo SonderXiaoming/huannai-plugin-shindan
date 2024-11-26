@@ -35,12 +35,29 @@ async def get_shindan_title(id: int) -> str:
 async def make_shindan(id: int, name: str, mode="image") -> Union[str, bytes]:
     url = f"https://shindanmaker.com/{id}"
     seed = time.strftime("%y%m%d", time.localtime())
+<<<<<<< HEAD
     async with get_new_page() as page:
         await page.set_extra_http_headers(headers=headers)
         await page.goto(url, wait_until="commit")
         await page.locator('//input[@id="user_input_value_1"]').fill(name + seed)
         await page.locator('//button[@id="shindanButtonSubmit"]').click()
         content = await page.content()
+=======
+    async with httpx.AsyncClient() as client:
+        resp = await get(client, url)
+        dom = BeautifulSoup(resp.text, "lxml")
+        form = dom.find("form", {"id": "shindanForm"})
+        _token = form.find("input", {"name": "_token"})["value"]
+        # shindan_token = form.find("input", {"name": "shindan_token"})["value"]
+        payload = {
+            "_token": _token,
+            "user_input_value_1": name,
+            "randname": "名なしのI",
+            "type": "name",
+            # "shindan_token": shindan_token,
+        }
+        resp = await post(client, url, json=payload)
+>>>>>>> 438cb8c2e4ab407e25bf99828e55c5eaa8e065c1
 
     if mode == "image":
         html, has_chart = await render_html(content)
