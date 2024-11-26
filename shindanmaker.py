@@ -6,72 +6,42 @@ from typing import Tuple, Union
 import httpx
 import jinja2
 from bs4 import BeautifulSoup, Tag
-from .htmlrender import html_to_pic
+from .htmlrender import html_to_pic, get_new_page
 from .config import SHINDANMAKER_COOKIE
 
 tpl_path = Path(__file__).parent / "templates"
-env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(tpl_path), enable_async=True)
+env = jinja2.Environment(loader=jinja2.FileSystemLoader(tpl_path), enable_async=True)
 
 
-headers = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/96.0.4664.110 Safari/537.36"
-    )
-}
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/96.0.4664.110 Safari/537.36"
+)
+headers = {"user-agent": USER_AGENT}
 
 if SHINDANMAKER_COOKIE:
     headers["cookie"] = SHINDANMAKER_COOKIE
 
 
-async def request(client: httpx.AsyncClient, method: str, url: str, **kwargs):
-    resp = await client.request(
-        method, url, headers=headers, timeout=20, follow_redirects=True, **kwargs
-    )
-    resp.raise_for_status()
-    return resp
-
-
-async def get(client: httpx.AsyncClient, url: str, **kwargs):
-    return await request(client, "GET", url, **kwargs)
-
-
-async def post(client: httpx.AsyncClient, url: str, **kwargs):
-    return await request(client, "POST", url, **kwargs)
-
-
 async def get_shindan_title(id: int) -> str:
     url = f"https://shindanmaker.com/{id}"
-    async with httpx.AsyncClient() as client:
-        resp = await get(client, url)
-        dom = BeautifulSoup(resp.text, "lxml")
-        title = dom.find("h1", {"id": "shindanTitle"})
-        assert title
-        return title.text
+    async with get_new_page() as page:
+        await page.set_extra_http_headers(headers=headers)
+        await page.goto(url, wait_until="commit")
+        return await page.locator('//h1[@id="shindanTitle"]').inner_text()
 
 
 async def make_shindan(id: int, name: str, mode="image") -> Union[str, bytes]:
-    print(name)
     url = f"https://shindanmaker.com/{id}"
     seed = time.strftime("%y%m%d", time.localtime())
-    async with httpx.AsyncClient() as client:
-        resp = await get(client, url)
-        dom = BeautifulSoup(resp.text, "lxml")
-        form = dom.find("form", {"id": "shindanForm"})
-        _token = form.find("input", {"name": "_token"})["value"]
-        shindan_token = form.find("input", {"name": "shindan_token"})["value"]
-        payload = {
-            "_token": _token,
-            "shindanName": name + seed,
-            "hiddenName": "名無しのR",
-            "type": "name",
-            "shindan_token": shindan_token,
-        }
-        resp = await post(client, url, json=payload)
+    async with get_new_page() as page:
+        await page.set_extra_http_headers(headers=headers)
+        await page.goto(url, wait_until="commit")
+        await page.locator('//input[@id="user_input_value_1"]').fill(name + seed)
+        await page.locator('//button[@id="shindanButtonSubmit"]').click()
+        content = await page.content()
 
-    content = resp.text
     if mode == "image":
         html, has_chart = await render_html(content)
         html = html.replace(seed, "")
@@ -100,9 +70,12 @@ def remove_shindan_effects(content: Tag, type: str):
 
 async def render_html(content: str) -> Tuple[str, bool]:
     dom = BeautifulSoup(content, "lxml")
-    result_js = str(
-        dom.find("script", string=re.compile(r"savedShindanResult")))
-    title = str(dom.find("h1", {"id": "shindanResultAbove"}))
+    result_js = str(dom.find("script", string=re.compile(r"savedShindanResult")))
+    title = (
+        str(dom.find("h1", {"id": "shindanResultAbove"}))
+        if dom.find("h1", {"id": "shindanResultAbove"})
+        else str(dom.find("div", {"class": "shindanTitleImageContainer"}))
+    )
     result = dom.find("div", {"id": "shindanResultBlock"})
     assert isinstance(result, Tag)
     remove_shindan_effects(result, "ef_shuffle")
